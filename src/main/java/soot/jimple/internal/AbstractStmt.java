@@ -37,6 +37,9 @@ import soot.jimple.Stmt;
 
 @SuppressWarnings("serial")
 public abstract class AbstractStmt extends AbstractUnit implements Stmt, ConvertToBaf {
+
+  private long offsetInBytecode = -1;
+
   public void convertToBaf(JimpleToBafContext context, List<Unit> out) {
     Unit u = Baf.v().newNopInst();
     out.add(u);
@@ -79,4 +82,11 @@ public abstract class AbstractStmt extends AbstractUnit implements Stmt, Convert
     throw new RuntimeException("getFieldRefBox() called with no FieldRef present!");
   }
 
+  public long getOffsetInBytecode() {
+    return offsetInBytecode;
+  }
+
+  public void setOffsetInBytecode(long offsetInBytecode) {
+    this.offsetInBytecode = offsetInBytecode;
+  }
 }

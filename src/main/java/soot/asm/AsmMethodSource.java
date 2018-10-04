@@ -194,25 +194,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.objectweb.asm.Handle;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.IincInsnNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
-import org.objectweb.asm.tree.InvokeDynamicInsnNode;
-import org.objectweb.asm.tree.JumpInsnNode;
-import org.objectweb.asm.tree.LabelNode;
-import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.LineNumberNode;
-import org.objectweb.asm.tree.LocalVariableNode;
-import org.objectweb.asm.tree.LookupSwitchInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MultiANewArrayInsnNode;
-import org.objectweb.asm.tree.TableSwitchInsnNode;
-import org.objectweb.asm.tree.TryCatchBlockNode;
-import org.objectweb.asm.tree.TypeInsnNode;
-import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.*;
 
 import soot.ArrayType;
 import soot.Body;
@@ -278,6 +260,7 @@ import soot.jimple.StringConstant;
 import soot.jimple.TableSwitchStmt;
 import soot.jimple.ThrowStmt;
 import soot.jimple.UnopExpr;
+import soot.jimple.internal.AbstractStmt;
 import soot.options.Options;
 import soot.tagkit.LineNumberTag;
 import soot.tagkit.Tag;
@@ -1895,11 +1878,26 @@ final class AsmMethodSource implements MethodSource {
     }
   }
 
+  private void emitUnits(Unit u, long insnLabelOffset) {
+    if (u instanceof UnitContainer) {
+      for (Unit uu : ((UnitContainer) u).units) {
+        emitUnits(uu, insnLabelOffset);
+      }
+    } else {
+      ((AbstractStmt) u).setOffsetInBytecode(insnLabelOffset);
+      body.getUnits().add(u);
+    }
+  }
+
   private void emitUnits() {
-    AbstractInsnNode insn = instructions.getFirst();
+
+    long insnLabelOffset = -1;
     ArrayDeque<LabelNode> labls = new ArrayDeque<LabelNode>();
 
-    while (insn != null) {
+    for (AbstractInsnNode insn = instructions.getFirst(); insn != null; insn = insn.getNext()) {
+      if (!(insn instanceof FrameNode || insn instanceof LineNumberNode))
+        insnLabelOffset++;
+
       // Save the label to assign it to the next real unit
       if (insn instanceof LabelNode) {
         labls.add((LabelNode) insn);
@@ -1908,11 +1906,10 @@ final class AsmMethodSource implements MethodSource {
       // Get the unit associated with the current instruction
       Unit u = units.get(insn);
       if (u == null) {
-        insn = insn.getNext();
         continue;
       }
 
-      emitUnits(u);
+      emitUnits(u, insnLabelOffset);
 
       // If this is an exception handler, register the starting unit for it
       {
@@ -1942,7 +1939,6 @@ final class AsmMethodSource implements MethodSource {
           }
         }
       }
-      insn = insn.getNext();
     }
 
     // Emit the inline exception handlers
