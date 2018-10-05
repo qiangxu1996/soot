@@ -708,6 +708,11 @@ final class AsmMethodSource implements MethodSource {
     }
   }
 
+  private void insertNopStmt(AbstractInsnNode insn) {
+    if (!units.containsKey(insn))
+      setUnit(insn, Jimple.v().newNopStmt());
+  }
+
   /*
    * Following version is more complex, using stack frames as opposed to simply swapping
    */
@@ -1592,18 +1597,11 @@ final class AsmMethodSource implements MethodSource {
   }
 
   private void convertLabel(LabelNode ln) {
-    if (!trapHandlers.containsKey(ln)) {
-      return;
-    }
-
     // We create a nop statement as a placeholder so that we can jump
     // somewhere from the real exception handler in case this is inline
     // code
-    if (inlineExceptionLabels.contains(ln)) {
-      if (!units.containsKey(ln)) {
-        NopStmt nop = Jimple.v().newNopStmt();
-        setUnit(ln, nop);
-      }
+    if (!trapHandlers.containsKey(ln) || inlineExceptionLabels.contains(ln)) {
+      insertNopStmt(ln);
       return;
     }
 
@@ -1892,16 +1890,10 @@ final class AsmMethodSource implements MethodSource {
   private void emitUnits() {
 
     long insnLabelOffset = -1;
-    ArrayDeque<LabelNode> labls = new ArrayDeque<LabelNode>();
 
     for (AbstractInsnNode insn = instructions.getFirst(); insn != null; insn = insn.getNext()) {
       if (!(insn instanceof FrameNode || insn instanceof LineNumberNode))
         insnLabelOffset++;
-
-      // Save the label to assign it to the next real unit
-      if (insn instanceof LabelNode) {
-        labls.add((LabelNode) insn);
-      }
 
       // Get the unit associated with the current instruction
       Unit u = units.get(insn);
@@ -1929,10 +1921,8 @@ final class AsmMethodSource implements MethodSource {
         }
       }
 
-      // Register this unit for all targets of the labels ending up at it
-      while (!labls.isEmpty()) {
-        LabelNode ln = labls.poll();
-        Collection<UnitBox> boxes = labels.get(ln);
+      if (insn instanceof LabelNode) {
+        Collection<UnitBox> boxes = labels.get((LabelNode) insn);
         if (boxes != null) {
           for (UnitBox box : boxes) {
             box.setUnit(u instanceof UnitContainer ? ((UnitContainer) u).getFirstUnit() : u);
@@ -1955,22 +1945,6 @@ final class AsmMethodSource implements MethodSource {
       Unit targetUnit = units.get(ln);
       GotoStmt gotoImpl = Jimple.v().newGotoStmt(targetUnit);
       body.getUnits().add(gotoImpl);
-    }
-
-    /* set remaining labels & boxes to last unit of chain */
-    if (labls.isEmpty()) {
-      return;
-    }
-    Unit end = Jimple.v().newNopStmt();
-    body.getUnits().add(end);
-    while (!labls.isEmpty()) {
-      LabelNode ln = labls.poll();
-      Collection<UnitBox> boxes = labels.get(ln);
-      if (boxes != null) {
-        for (UnitBox box : boxes) {
-          box.setUnit(end);
-        }
-      }
     }
   }
 
