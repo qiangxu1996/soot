@@ -788,6 +788,8 @@ final class AsmMethodSource implements MethodSource {
       push(dupd2);
       push(dupd);
     }
+
+    insertNopStmt(insn);
   }
 
   private void convertBinopInsn(InsnNode insn) {
@@ -970,6 +972,7 @@ final class AsmMethodSource implements MethodSource {
       convertArrayStoreInsn(insn);
     } else if (op == POP) {
       popImmediate();
+      insertNopStmt(insn);
     } else if (op == POP2) {
       popImmediate();
       if (peek() == DWORD_DUMMY) {
@@ -977,6 +980,7 @@ final class AsmMethodSource implements MethodSource {
       } else {
         popImmediate();
       }
+      insertNopStmt(insn);
     } else if (op >= DUP && op <= DUP2_X2) {
       convertDupInsn((InsnNode) insn);
     } else if (op == SWAP) {
@@ -984,6 +988,7 @@ final class AsmMethodSource implements MethodSource {
       Operand o2 = popImmediate();
       push(o1);
       push(o2);
+      insertNopStmt(insn);
     } else if ((op >= IADD && op <= DREM) || (op >= ISHL && op <= LXOR) || (op >= LCMP && op <= DCMPG)) {
       convertBinopInsn((InsnNode) insn);
     } else if ((op >= INEG && op <= DNEG) || op == ARRAYLENGTH) {
