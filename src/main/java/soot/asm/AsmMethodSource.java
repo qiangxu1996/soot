@@ -232,7 +232,6 @@ import soot.jimple.CastExpr;
 import soot.jimple.CaughtExceptionRef;
 import soot.jimple.ClassConstant;
 import soot.jimple.ConditionExpr;
-import soot.jimple.Constant;
 import soot.jimple.DefinitionStmt;
 import soot.jimple.DoubleConstant;
 import soot.jimple.DynamicInvokeExpr;
@@ -381,10 +380,10 @@ final class AsmMethodSource implements MethodSource {
     return AsmUtil.isDWord(t) ? popDual() : pop();
   }
 
-  private Operand popLocal(Operand o) {
+  private Operand popAndConvert(Operand o) {
     Value v = o.value;
     Local l = o.stack;
-    if (l == null && !(v instanceof Local)) {
+    if (l == null) {
       l = o.stack = newStackLocal();
       setUnit(o.insn, Jimple.v().newAssignStmt(l, v));
       o.updateBoxes();
@@ -392,64 +391,17 @@ final class AsmMethodSource implements MethodSource {
     return o;
   }
 
-  private Operand popImmediate(Operand o) {
-    Value v = o.value;
-    Local l = o.stack;
-    if (l == null && !(v instanceof Local) && !(v instanceof Constant)) {
-      l = o.stack = newStackLocal();
-      setUnit(o.insn, Jimple.v().newAssignStmt(l, v));
-      o.updateBoxes();
-    }
-    return o;
+  private Operand popAndConvert() {
+    return popAndConvert(pop());
   }
 
-  private Operand popStackConst(Operand o) {
-    Value v = o.value;
-    Local l = o.stack;
-    if (l == null && !(v instanceof Constant)) {
-      l = o.stack = newStackLocal();
-      setUnit(o.insn, Jimple.v().newAssignStmt(l, v));
-      o.updateBoxes();
-    }
-    return o;
-  }
-
-  private Operand popLocal() {
-    return popLocal(pop());
-  }
-
-  private Operand popLocalDual() {
-    return popLocal(popDual());
+  private Operand popAndConvertDual() {
+    return popAndConvert(popDual());
   }
 
   @SuppressWarnings("unused")
-  private Operand popLocal(Type t) {
-    return AsmUtil.isDWord(t) ? popLocalDual() : popLocal();
-  }
-
-  private Operand popImmediate() {
-    return popImmediate(pop());
-  }
-
-  private Operand popImmediateDual() {
-    return popImmediate(popDual());
-  }
-
-  private Operand popImmediate(Type t) {
-    return AsmUtil.isDWord(t) ? popImmediateDual() : popImmediate();
-  }
-
-  private Operand popStackConst() {
-    return popStackConst(pop());
-  }
-
-  private Operand popStackConstDual() {
-    return popStackConst(popDual());
-  }
-
-  @SuppressWarnings("unused")
-  private Operand popStackConst(Type t) {
-    return AsmUtil.isDWord(t) ? popStackConstDual() : popStackConst();
+  private Operand popAndConvert(Type t) {
+    return AsmUtil.isDWord(t) ? popAndConvertDual() : popAndConvert();
   }
 
   void setUnit(AbstractInsnNode insn, Unit u) {
@@ -537,7 +489,7 @@ final class AsmMethodSource implements MethodSource {
         ref = Scene.v().makeFieldRef(declClass, insn.name, type, true);
         val = Jimple.v().newStaticFieldRef(ref);
       } else {
-        Operand base = popLocal();
+        Operand base = popAndConvert();
         ref = Scene.v().makeFieldRef(declClass, insn.name, type, false);
         InstanceFieldRef ifr = Jimple.v().newInstanceFieldRef(base.stackOrValue(), ref);
         val = ifr;
@@ -568,13 +520,13 @@ final class AsmMethodSource implements MethodSource {
       type = AsmUtil.toJimpleType(insn.desc);
       Value val;
       SootFieldRef ref;
-      rvalue = popImmediate(type);
+      rvalue = popAndConvert(type);
       if (!instance) {
         ref = Scene.v().makeFieldRef(declClass, insn.name, type, true);
         val = Jimple.v().newStaticFieldRef(ref);
         frame.in(rvalue);
       } else {
-        Operand base = popLocal();
+        Operand base = popAndConvert();
         ref = Scene.v().makeFieldRef(declClass, insn.name, type, false);
         InstanceFieldRef ifr = Jimple.v().newInstanceFieldRef(base.stackOrValue(), ref);
         val = ifr;
@@ -665,8 +617,8 @@ final class AsmMethodSource implements MethodSource {
     Operand[] out = frame.out();
     Operand opr;
     if (out == null) {
-      Operand indx = popImmediate();
-      Operand base = popImmediate();
+      Operand indx = popAndConvert();
+      Operand base = popAndConvert();
       ArrayRef ar = Jimple.v().newArrayRef(base.stackOrValue(), indx.stackOrValue());
       indx.addBox(ar.getIndexBox());
       base.addBox(ar.getBaseBox());
@@ -691,9 +643,9 @@ final class AsmMethodSource implements MethodSource {
     boolean dword = op == LASTORE || op == DASTORE;
     StackFrame frame = getFrame(insn);
     if (!units.containsKey(insn)) {
-      Operand valu = dword ? popImmediateDual() : popImmediate();
-      Operand indx = popImmediate();
-      Operand base = popLocal();
+      Operand valu = dword ? popAndConvertDual() : popAndConvert();
+      Operand indx = popAndConvert();
+      Operand base = popAndConvert();
       ArrayRef ar = Jimple.v().newArrayRef(base.stackOrValue(), indx.stackOrValue());
       indx.addBox(ar.getIndexBox());
       base.addBox(ar.getBaseBox());
@@ -728,18 +680,13 @@ final class AsmMethodSource implements MethodSource {
     int op = insn.getOpcode();
 
     // Get the top stack value which we need in either case
-    Operand dupd = popImmediate();
+    Operand dupd = pop();
     Operand dupd2 = null;
 
     // Some instructions allow operands that take two registers
     boolean dword = op == DUP2 || op == DUP2_X1 || op == DUP2_X2;
     if (dword) {
-      if (peek() == DWORD_DUMMY) {
-        pop();
-        dupd2 = dupd;
-      } else {
-        dupd2 = popImmediate();
-      }
+      dupd2 = pop();
     }
 
     if (op == DUP) {
@@ -749,14 +696,14 @@ final class AsmMethodSource implements MethodSource {
     } else if (op == DUP_X1) {
       // val2, val1 -> val1, val2, val1
       // value1, value2 must not be of type double or long
-      Operand o2 = popImmediate();
+      Operand o2 = pop();
       push(dupd);
       push(o2);
       push(dupd);
     } else if (op == DUP_X2) {
       // value3, value2, value1 -> value1, value3, value2, value1
-      Operand o2 = popImmediate();
-      Operand o3 = peek() == DWORD_DUMMY ? pop() : popImmediate();
+      Operand o2 = pop();
+      Operand o3 = pop();
       push(dupd);
       push(o3);
       push(o2);
@@ -770,7 +717,7 @@ final class AsmMethodSource implements MethodSource {
     } else if (op == DUP2_X1) {
       // value3, value2, value1 -> value2, value1, value3, value2, value1
       // Attention: value2 may be
-      Operand o2 = popImmediate();
+      Operand o2 = pop();
       push(dupd2);
       push(dupd);
       push(o2);
@@ -778,8 +725,8 @@ final class AsmMethodSource implements MethodSource {
       push(dupd);
     } else if (op == DUP2_X2) {
       // (value4, value3), (value2, value1) -> (value2, value1), (value4, value3), (value2, value1)
-      Operand o2 = popImmediate();
-      Operand o2h = peek() == DWORD_DUMMY ? pop() : popImmediate();
+      Operand o2 = pop();
+      Operand o2h = pop();
       push(dupd2);
       push(dupd);
       push(o2h);
@@ -800,8 +747,8 @@ final class AsmMethodSource implements MethodSource {
     Operand[] out = frame.out();
     Operand opr;
     if (out == null) {
-      Operand op2 = (dword && op != LSHL && op != LSHR && op != LUSHR) ? popImmediateDual() : popImmediate();
-      Operand op1 = dword ? popImmediateDual() : popImmediate();
+      Operand op2 = (dword && op != LSHL && op != LSHR && op != LUSHR) ? popAndConvertDual() : popAndConvert();
+      Operand op1 = dword ? popAndConvertDual() : popAndConvert();
       Value v1 = op1.stackOrValue();
       Value v2 = op2.stackOrValue();
       BinopExpr binop;
@@ -868,7 +815,7 @@ final class AsmMethodSource implements MethodSource {
     Operand[] out = frame.out();
     Operand opr;
     if (out == null) {
-      Operand op1 = dword ? popImmediateDual() : popImmediate();
+      Operand op1 = dword ? popAndConvertDual() : popAndConvert();
       Value v1 = op1.stackOrValue();
       UnopExpr unop;
       if (op >= INEG && op <= DNEG) {
@@ -920,7 +867,7 @@ final class AsmMethodSource implements MethodSource {
       } else {
         throw new AssertionError("Unknonw prim cast op: " + op);
       }
-      Operand val = fromd ? popImmediateDual() : popImmediate();
+      Operand val = fromd ? popAndConvertDual() : popAndConvert();
       CastExpr cast = Jimple.v().newCastExpr(val.stackOrValue(), totype);
       opr = new Operand(insn, cast);
       val.addBox(cast.getOpBox());
@@ -943,7 +890,7 @@ final class AsmMethodSource implements MethodSource {
     boolean dword = op == LRETURN || op == DRETURN;
     StackFrame frame = getFrame(insn);
     if (!units.containsKey(insn)) {
-      Operand val = dword ? popImmediateDual() : popImmediate();
+      Operand val = dword ? popAndConvertDual() : popAndConvert();
       ReturnStmt ret = Jimple.v().newReturnStmt(val.stackOrValue());
       val.addBox(ret.getOpBox());
       frame.in(val);
@@ -970,21 +917,21 @@ final class AsmMethodSource implements MethodSource {
     } else if (op >= IASTORE && op <= SASTORE) {
       convertArrayStoreInsn(insn);
     } else if (op == POP) {
-      popImmediate();
+      popAndConvert();
       insertNopStmt(insn);
     } else if (op == POP2) {
-      popImmediate();
+      popAndConvert();
       if (peek() == DWORD_DUMMY) {
         pop();
       } else {
-        popImmediate();
+        popAndConvert();
       }
       insertNopStmt(insn);
     } else if (op >= DUP && op <= DUP2_X2) {
       convertDupInsn((InsnNode) insn);
     } else if (op == SWAP) {
-      Operand o1 = popImmediate();
-      Operand o2 = popImmediate();
+      Operand o1 = pop();
+      Operand o2 = pop();
       push(o1);
       push(o2);
       insertNopStmt(insn);
@@ -1004,7 +951,7 @@ final class AsmMethodSource implements MethodSource {
       StackFrame frame = getFrame(insn);
       Operand opr;
       if (!units.containsKey(insn)) {
-        opr = popImmediate();
+        opr = popAndConvert();
         ThrowStmt ts = Jimple.v().newThrowStmt(opr.stackOrValue());
         opr.addBox(ts.getOpBox());
         frame.in(opr);
@@ -1019,7 +966,7 @@ final class AsmMethodSource implements MethodSource {
     } else if (op == MONITORENTER || op == MONITOREXIT) {
       StackFrame frame = getFrame(insn);
       if (!units.containsKey(insn)) {
-        Operand opr = popStackConst();
+        Operand opr = popAndConvert();
         MonitorStmt ts = op == MONITORENTER ? Jimple.v().newEnterMonitorStmt(opr.stackOrValue())
             : Jimple.v().newExitMonitorStmt(opr.stackOrValue());
         opr.addBox(ts.getOpBox());
@@ -1073,7 +1020,7 @@ final class AsmMethodSource implements MethodSource {
           default:
             throw new AssertionError("Unknown NEWARRAY type!");
         }
-        Operand size = popImmediate();
+        Operand size = popAndConvert();
         NewArrayExpr anew = Jimple.v().newNewArrayExpr(type, size.stackOrValue());
         size.addBox(anew.getSizeBox());
         frame.in(size);
@@ -1104,11 +1051,11 @@ final class AsmMethodSource implements MethodSource {
     /* must be ifX insn */
     StackFrame frame = getFrame(insn);
     if (!units.containsKey(insn)) {
-      Operand val = popImmediate();
+      Operand val = popAndConvert();
       Value v = val.stackOrValue();
       ConditionExpr cond;
       if (op >= IF_ICMPEQ && op <= IF_ACMPNE) {
-        Operand val1 = popImmediate();
+        Operand val1 = popAndConvert();
         Value v1 = val1.stackOrValue();
         if (op == IF_ICMPEQ) {
           cond = Jimple.v().newEqExpr(v1, v);
@@ -1217,7 +1164,7 @@ final class AsmMethodSource implements MethodSource {
       frame.mergeIn(pop());
       return;
     }
-    Operand key = popImmediate();
+    Operand key = popAndConvert();
     UnitBox dflt = Jimple.v().newStmtBox(null);
 
     List<UnitBox> targets = new ArrayList<UnitBox>(insn.labels.size());
@@ -1271,14 +1218,14 @@ final class AsmMethodSource implements MethodSource {
         }
       }
       while (nrArgs-- != 0) {
-        args[nrArgs] = popImmediate(sigTypes.get(nrArgs));
+        args[nrArgs] = popAndConvert(sigTypes.get(nrArgs));
         argList.add(args[nrArgs].stackOrValue());
       }
       if (argList.size() > 1) {
         Collections.reverse(argList);
       }
       if (instance) {
-        args[args.length - 1] = popLocal();
+        args[args.length - 1] = popAndConvert();
       }
       ValueBox[] boxes = args == null ? null : new ValueBox[args.length];
       InvokeExpr invoke;
@@ -1375,7 +1322,7 @@ final class AsmMethodSource implements MethodSource {
 
       while (nrArgs-- != 0) {
         parameterTypes.add(types[nrArgs]);
-        args[nrArgs] = popImmediate(types[nrArgs]);
+        args[nrArgs] = popAndConvert(types[nrArgs]);
         methodArgs.add(args[nrArgs].stackOrValue());
       }
       if (methodArgs.size() > 1) {
@@ -1456,7 +1403,7 @@ final class AsmMethodSource implements MethodSource {
       Value[] sizeVals = new Value[dims];
       ValueBox[] boxes = new ValueBox[dims];
       while (dims-- != 0) {
-        sizes[dims] = popImmediate();
+        sizes[dims] = popAndConvert();
         sizeVals[dims] = sizes[dims].stackOrValue();
       }
       NewMultiArrayExpr nm = Jimple.v().newNewMultiArrayExpr(t, Arrays.asList(sizeVals));
@@ -1487,7 +1434,7 @@ final class AsmMethodSource implements MethodSource {
       frame.mergeIn(pop());
       return;
     }
-    Operand key = popImmediate();
+    Operand key = popAndConvert();
     UnitBox dflt = Jimple.v().newStmtBox(null);
     List<UnitBox> targets = new ArrayList<UnitBox>(insn.labels.size());
     labels.put(insn.dflt, dflt);
@@ -1514,7 +1461,7 @@ final class AsmMethodSource implements MethodSource {
       if (op == NEW) {
         val = Jimple.v().newNewExpr((RefType) t);
       } else {
-        Operand op1 = popImmediate();
+        Operand op1 = popAndConvert();
         Value v1 = op1.stackOrValue();
         ValueBox vb;
         if (op == ANEWARRAY) {
@@ -1570,16 +1517,16 @@ final class AsmMethodSource implements MethodSource {
     int op = insn.getOpcode();
     boolean dword = op == LSTORE || op == DSTORE;
     StackFrame frame = getFrame(insn);
-    Operand opr = dword ? popDual() : pop();
     Local local = getLocal(insn.var);
     if (!units.containsKey(insn)) {
+      Operand opr = dword ? popAndConvertDual() : popAndConvert();
       DefinitionStmt as = Jimple.v().newAssignStmt(local, opr.stackOrValue());
       opr.addBox(as.getRightOpBox());
       frame.boxes(as.getRightOpBox());
       frame.in(opr);
       setUnit(insn, as);
     } else {
-      frame.mergeIn(opr);
+      frame.mergeIn(dword ? popDual() : pop());
     }
     assignReadOps(local);
   }
