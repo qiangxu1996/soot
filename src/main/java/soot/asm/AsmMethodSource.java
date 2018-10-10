@@ -370,7 +370,7 @@ final class AsmMethodSource implements MethodSource {
   private Operand popDual() {
     Operand o = pop();
     Operand o2 = pop();
-    if (o2 != DWORD_DUMMY && o2 != o) {
+    if (o2 != DWORD_DUMMY) {
       throw new AssertionError("Not dummy operand, " + o2.value + " -- " + o.value);
     }
     return o;
