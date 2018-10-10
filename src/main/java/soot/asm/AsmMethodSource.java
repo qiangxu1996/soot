@@ -259,6 +259,7 @@ import soot.jimple.TableSwitchStmt;
 import soot.jimple.ThrowStmt;
 import soot.jimple.UnopExpr;
 import soot.jimple.internal.AbstractStmt;
+import soot.jimple.validation.BytecodeMappingValidator;
 import soot.options.Options;
 import soot.tagkit.LineNumberTag;
 import soot.tagkit.Tag;
@@ -1882,6 +1883,8 @@ final class AsmMethodSource implements MethodSource {
       }
     }
 
+    body.setBytecodeInsnNum(insnLabelOffset + 1);
+
     // Emit the inline exception handlers
     for (LabelNode ln : this.inlineExceptionHandlers.keySet()) {
       Unit handler = this.inlineExceptionHandlers.get(ln);
@@ -1948,6 +1951,9 @@ final class AsmMethodSource implements MethodSource {
     stack = null;
     frames = null;
     body = null;
+
+    if (Options.v().validate())
+      BytecodeMappingValidator.v().validate(jb);
 
     // Make sure to inline patterns of the form to enable proper variable
     // splitting and type assignment:

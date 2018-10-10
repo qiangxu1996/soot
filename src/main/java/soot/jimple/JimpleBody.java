@@ -34,15 +34,7 @@ import soot.SootClass;
 import soot.SootMethod;
 import soot.Type;
 import soot.Unit;
-import soot.jimple.validation.FieldRefValidator;
-import soot.jimple.validation.IdentityStatementsValidator;
-import soot.jimple.validation.IdentityValidator;
-import soot.jimple.validation.InvokeArgumentValidator;
-import soot.jimple.validation.JimpleTrapValidator;
-import soot.jimple.validation.MethodValidator;
-import soot.jimple.validation.NewValidator;
-import soot.jimple.validation.ReturnStatementsValidator;
-import soot.jimple.validation.TypesValidator;
+import soot.jimple.validation.*;
 import soot.options.Options;
 import soot.util.Chain;
 import soot.validation.BodyValidator;
@@ -50,6 +42,8 @@ import soot.validation.ValidationException;
 
 /** Implementation of the Body class for the Jimple IR. */
 public class JimpleBody extends StmtBody {
+  private long bytecodeInsnNum;
+
   private static BodyValidator[] validators;
 
   /**
@@ -61,7 +55,7 @@ public class JimpleBody extends StmtBody {
     if (validators == null) {
       validators = new BodyValidator[] { IdentityStatementsValidator.v(), TypesValidator.v(), ReturnStatementsValidator.v(),
           InvokeArgumentValidator.v(), FieldRefValidator.v(), NewValidator.v(), JimpleTrapValidator.v(),
-          IdentityValidator.v(), MethodValidator.v()
+          IdentityValidator.v(), MethodValidator.v(), BytecodeMappingValidator.v()
           // InvokeValidator.v()
       };
     }
@@ -184,5 +178,13 @@ public class JimpleBody extends StmtBody {
       throw new RuntimeException("no non-id statements!");
     }
     return (Stmt) o;
+  }
+
+  public long getBytecodeInsnNum() {
+    return bytecodeInsnNum;
+  }
+
+  public void setBytecodeInsnNum(long bytecodeInsnNum) {
+    this.bytecodeInsnNum = bytecodeInsnNum;
   }
 }
