@@ -226,6 +226,7 @@ public class TypeResolver {
         }
 
         Local vold;
+        long bytecodeOffset = stmt.getOffsetInBytecode();
         if (!(op instanceof Local)) {
           /*
            * By the time we have countOnly == false, all variables must by typed with concrete Jimple types, and never
@@ -236,7 +237,9 @@ public class TypeResolver {
           this.tg.set(vold, t);
           this.jb.getLocals().add(vold);
           Unit u = Util.findFirstNonIdentityUnit(jb, stmt);
-          this.jb.getUnits().insertBefore(jimple.newAssignStmt(vold, op), u);
+          Stmt assignStmt = jimple.newAssignStmt(vold, op);
+          assignStmt.setOffsetInBytecode(bytecodeOffset);
+          this.jb.getUnits().insertBefore(assignStmt, u);
         } else {
           vold = (Local) op;
         }
@@ -246,7 +249,9 @@ public class TypeResolver {
         this.tg.set(vnew, useType);
         this.jb.getLocals().add(vnew);
         Unit u = Util.findFirstNonIdentityUnit(jb, stmt);
-        this.jb.getUnits().insertBefore(jimple.newAssignStmt(vnew, jimple.newCastExpr(vold, useType)), u);
+        Stmt assignStmt = jimple.newAssignStmt(vnew, jimple.newCastExpr(vold, useType));
+        assignStmt.setOffsetInBytecode(bytecodeOffset);
+        this.jb.getUnits().insertBefore(assignStmt, u);
         return vnew;
       }
     }
@@ -560,6 +565,7 @@ public class TypeResolver {
                   special.setBase(newlocal);
 
                   DefinitionStmt assignStmt = jimple.newAssignStmt(assign.getLeftOp(), newlocal);
+                  assignStmt.setOffsetInBytecode(assign.getOffsetInBytecode());
                   Unit u = Util.findLastIdentityUnit(jb, assign);
                   units.insertAfter(assignStmt, u);
                   assign.setLeftOp(newlocal);
