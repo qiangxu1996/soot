@@ -224,41 +224,7 @@ import soot.Value;
 import soot.ValueBox;
 import soot.VoidType;
 import soot.coffi.Util;
-import soot.jimple.AddExpr;
-import soot.jimple.ArrayRef;
-import soot.jimple.AssignStmt;
-import soot.jimple.BinopExpr;
-import soot.jimple.CastExpr;
-import soot.jimple.CaughtExceptionRef;
-import soot.jimple.ClassConstant;
-import soot.jimple.ConditionExpr;
-import soot.jimple.DefinitionStmt;
-import soot.jimple.DoubleConstant;
-import soot.jimple.DynamicInvokeExpr;
-import soot.jimple.FieldRef;
-import soot.jimple.FloatConstant;
-import soot.jimple.GotoStmt;
-import soot.jimple.IdentityStmt;
-import soot.jimple.InstanceFieldRef;
-import soot.jimple.InstanceInvokeExpr;
-import soot.jimple.InstanceOfExpr;
-import soot.jimple.IntConstant;
-import soot.jimple.InvokeExpr;
-import soot.jimple.Jimple;
-import soot.jimple.JimpleBody;
-import soot.jimple.LongConstant;
-import soot.jimple.LookupSwitchStmt;
-import soot.jimple.MethodHandle;
-import soot.jimple.MonitorStmt;
-import soot.jimple.NewArrayExpr;
-import soot.jimple.NewMultiArrayExpr;
-import soot.jimple.NullConstant;
-import soot.jimple.ReturnStmt;
-import soot.jimple.StringConstant;
-import soot.jimple.TableSwitchStmt;
-import soot.jimple.ThrowStmt;
-import soot.jimple.UnopExpr;
-import soot.jimple.internal.AbstractStmt;
+import soot.jimple.*;
 import soot.jimple.validation.BytecodeMappingValidator;
 import soot.options.Options;
 import soot.tagkit.LineNumberTag;
@@ -1834,7 +1800,7 @@ final class AsmMethodSource implements MethodSource {
         emitUnits(uu, insnLabelOffset);
       }
     } else {
-      ((AbstractStmt) u).setOffsetInBytecode(insnLabelOffset);
+      ((Stmt) u).setOffsetInBytecode(insnLabelOffset);
       body.getUnits().add(u);
     }
   }

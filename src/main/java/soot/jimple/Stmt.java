@@ -46,4 +46,8 @@ public interface Stmt extends Unit {
   public FieldRef getFieldRef();
 
   public ValueBox getFieldRefBox();
+
+  long getOffsetInBytecode();
+
+  void setOffsetInBytecode(long offsetInBytecode);
 }
