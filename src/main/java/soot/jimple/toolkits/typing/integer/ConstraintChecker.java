@@ -794,8 +794,11 @@ class ConstraintChecker extends AbstractStmtSwitch {
     Local newlocal = Jimple.v().newLocal("tmp", type);
     stmtBody.getLocals().add(newlocal);
 
+    Stmt assignStmt = Jimple.v().newAssignStmt(newlocal, Jimple.v().newCastExpr(oldlocal, type));
+    assignStmt.setOffsetInBytecode(stmt.getOffsetInBytecode());
+
     Unit u = Util.findFirstNonIdentityUnit(this.stmtBody, stmt);
-    stmtBody.getUnits().insertBefore(Jimple.v().newAssignStmt(newlocal, Jimple.v().newCastExpr(oldlocal, type)), u);
+    stmtBody.getUnits().insertBefore(assignStmt, u);
     return newlocal;
   }
 
@@ -803,8 +806,11 @@ class ConstraintChecker extends AbstractStmtSwitch {
     Local newlocal = Jimple.v().newLocal("tmp", righttype);
     stmtBody.getLocals().add(newlocal);
 
+    Stmt assignStmt = Jimple.v().newAssignStmt(leftlocal, Jimple.v().newCastExpr(newlocal, lefttype));
+    assignStmt.setOffsetInBytecode(stmt.getOffsetInBytecode());
+
     Unit u = Util.findLastIdentityUnit(this.stmtBody, stmt);
-    stmtBody.getUnits().insertAfter(Jimple.v().newAssignStmt(leftlocal, Jimple.v().newCastExpr(newlocal, lefttype)), u);
+    stmtBody.getUnits().insertAfter(assignStmt, u);
     return newlocal;
   }
 
@@ -814,9 +820,14 @@ class ConstraintChecker extends AbstractStmtSwitch {
     stmtBody.getLocals().add(newlocal1);
     stmtBody.getLocals().add(newlocal2);
 
+    Stmt assignStmt1 = Jimple.v().newAssignStmt(newlocal1, oldvalue);
+    Stmt assignStmt2 = Jimple.v().newAssignStmt(newlocal2, Jimple.v().newCastExpr(newlocal1, type));
+    assignStmt1.setOffsetInBytecode(stmt.getOffsetInBytecode());
+    assignStmt2.setOffsetInBytecode(stmt.getOffsetInBytecode());
+
     Unit u = Util.findFirstNonIdentityUnit(this.stmtBody, stmt);
-    stmtBody.getUnits().insertBefore(Jimple.v().newAssignStmt(newlocal1, oldvalue), u);
-    stmtBody.getUnits().insertBefore(Jimple.v().newAssignStmt(newlocal2, Jimple.v().newCastExpr(newlocal1, type)), u);
+    stmtBody.getUnits().insertBefore(assignStmt1, u);
+    stmtBody.getUnits().insertBefore(assignStmt2, u);
     return newlocal2;
   }
 }
