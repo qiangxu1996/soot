@@ -1671,6 +1671,7 @@ final class AsmMethodSource implements MethodSource {
           convertTableSwitchInsn(swtch);
           LabelNode dflt = swtch.dflt;
           addEdges(insn, dflt, swtch.labels);
+          break;
         } else if (type == TYPE_INSN) {
           convertTypeInsn((TypeInsnNode) insn);
         } else if (type == VAR_INSN) {
